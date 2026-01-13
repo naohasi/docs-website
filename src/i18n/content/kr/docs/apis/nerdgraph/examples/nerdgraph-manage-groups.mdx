@@ -1,9 +1,9 @@
 ---
-title: 'NerdGraph 튜토리얼: 사용자 그룹 관리'
+title: 'NerdGraph tutorial: Manage groups and users'
 tags:
   - APIs
   - NerdGraph
-metaDescription: How to use New Relic's NerdGraph API to manage user groups and query information about groups.
+metaDescription: 'How to use New Relic''s NerdGraph API to manage groups and users, and grant access to roles.'
 freshnessValidatedDate: never
 translationType: machine
 ---
@@ -332,7 +332,9 @@ query {
 
 ### 사용자 지정 역할을 생성합니다
 
-새 역할에 할당할 각 권한에 대한 고유 식별자를 확보한 후에는 다음 뮤테이션을 사용하여 [역할을](/docs/accounts/accounts-billing/new-relic-one-user-management/user-management-concepts/#roles) 생성하십시오.
+After you have the unique identifier for each permission you want to assign to the new role, use the following mutation to create a [role](/docs/accounts/accounts-billing/new-relic-one-user-management/user-management-concepts/#roles). You can create roles at three different scopes: account, organization, or entity level. The type of role you create must match the scope of the permissions you&apos;re assigning.
+
+#### Account-scoped role
 
 ```graphql
 mutation {
@@ -341,9 +343,45 @@ mutation {
       id: "YOUR_ORGANIZATION_ID"
       type: "ORGANIZATION"
     }
-    name: "MY CUSTOM ROLE"
+    name: "MY CUSTOM ACCOUNT ROLE"
     permissionIds: [1, 2, 3]
     scope: "account"
+  ) {
+    id
+  }
+}
+```
+
+#### Organization-scoped role
+
+```graphql
+mutation {
+  customRoleCreate(
+    container: {
+      id: "YOUR_ORGANIZATION_ID"
+      type: "ORGANIZATION"
+    }
+    name: "MY CUSTOM ORGANIZATION ROLE"
+    permissionIds: [4, 5, 6]
+    scope: "organization"
+  ) {
+    id
+  }
+}
+```
+
+#### Entity-scoped role
+
+```graphql
+mutation {
+  customRoleCreate(
+    container: {
+      id: "YOUR_ORGANIZATION_ID"
+      type: "ORGANIZATION"
+    }
+    name: "MY CUSTOM ENTITY ROLE"
+    permissionIds: [7, 8, 9]
+    scope: "entity"
   ) {
     id
   }
@@ -356,11 +394,16 @@ mutation {
 
   * `id`: (문자열) 조직의 고유 식별자입니다. `YOUR_ORGANIZATION_ID` 실제 조직 ID로 바꾸세요.
   * `type`: (문자열) 컨테이너의 유형입니다. 현재 지원되는 유일한 유형은 `"ORGANIZATION"` 입니다.
-  * `name`: (문자열) 사용자 정의 역할에 할당된 이름입니다. 예: `"MY CUSTOM ROLE"`.
+
+* `name`: (String) The name assigned to the custom role.
 
 * `permissionIds`: (어레이) 사용자 지정 역할에 할당된 기능을 나타내는 권한 ID 목록입니다. 위의 권한 쿼리에서 가져온 ID를 사용하십시오.
 
-* `scope`: (문자열) 역할의 권한이 적용되는 수준입니다. 이 경우 범위는 `"ACCOUNT"` 입니다.
+* `scope`: (String) The level at which the role&apos;s permissions apply. Supported values:
+
+  * `"account"`: Role permissions apply at the account level
+  * `"organization"`: Role permissions apply at the organization level
+  * `"entity"`: Role permissions apply at the entity level
 
 ### 응답
 
@@ -368,7 +411,8 @@ mutation {
 
   <Callout variant="important">
     * 변형을 실행하기 전에 `YOUR_ORGANIZATION_ID` 특정 조직 ID로 바꾸세요.
-    * 예시 `permissionIds: [1, 2, 3]` 권한 쿼리에서 가져온 실제 권한 ID로 바꾸세요.
+    * 예시 `permissionIds` 권한 쿼리에서 가져온 실제 권한 ID로 바꾸세요.
+    * Ensure that the permission IDs you use match the scope you&apos;re creating. Use organization-scoped permissions for organization roles and account-scoped permissions for account roles.
   </Callout>
 
 ## 역할 업데이트 [#update-role]
@@ -699,28 +743,131 @@ mutation {
 }
 ```
 
-## 그룹에 액세스 권한 부여 [#grant-access]
+## Grant access to a group or user [#grant-access]
 
-다음은 역할 및 계정에 대한 액세스 권한을 그룹에 부여하는 예입니다.
+Access grants connect groups or users to roles and define what they can access. When you create an access grant, you&apos;re giving users or groups the permissions defined in a role, applied to a specific target (organization, accounts, entities, or other groups).
+
+To specify who receives the access grant:
+
+* **For users**: Use the `grantee` parameter with `id` and `type: USER`
+* **For groups**: Replace `grantee` with `groupId: "YOUR_GROUP_ID"`
+
+### Account-scoped grant
+
+Here&apos;s an example of granting access to an account-scoped role:
 
 ```graphql
 mutation {
   authorizationManagementGrantAccess(
     grantAccessOptions: {
-      groupId: "YOUR_GROUP_ID"
       accountAccessGrants: {
         accountId: YOUR_ACCOUNT_ID
+        dataAccessPolicyId: "YOUR_DATA_ACCESS_POLICY_ID"
         roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
       }
     }
   ) {
+    accessGrants {
+      id
+    }
     roles {
-      displayName
-      accountId
+      name
     }
   }
 }
 ```
+
+### Organization-scoped grant
+
+Here&apos;s an example of granting access to an organization-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      organizationAccessGrants: {
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Entity-scoped grant
+
+Here&apos;s an example of granting access to an entity-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      entityAccessGrants: {
+        entity: {
+          id: "YOUR_ENTITY_ID"
+          type: "YOUR_ENTITY_TYPE"
+        }
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Group-scoped grant
+
+Here&apos;s an example of granting access to a group-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      groupAccessGrants: {
+        groupId: "YOUR_TARGET_GROUP_ID"
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Response examples
 
 성공에 대한 응답:
 
@@ -728,22 +875,14 @@ mutation {
 {
   "data": {
     "authorizationManagementGrantAccess": {
+      "accessGrants": [
+        {
+          "id": "ACCESS_GRANT_ID"
+        }
+      ],
       "roles": [
         {
-          "displayName": "ROLE_NAME_1",
-          "id": "ROLE_ID_1"
-        },
-        {
-          "displayName": "ROLE_NAME_2",
-          "id": "ROLE_ID_2"
-        },
-        {
-          "displayName": "ROLE_NAME_3",
-          "id": "ROLE_ID_3"
-        },
-        {
-          "displayName": "ROLE_NAME_4",
-          "id": "ROLE_ID_4"
+          "name": "ROLE_NAME"
         }
       ]
     }
@@ -775,6 +914,33 @@ mutation {
       ]
     }
   ]
+}
+```
+
+## Update access grants [#update-grants]
+
+You can update existing account access grants to change the data access policy. Use the `authorizationManagementUpdateAccess` mutation with the grant IDs you want to update.
+
+<Callout variant="important">
+  Updating access grants is currently only available for account-scoped grants.
+</Callout>
+
+Here&apos;s an example of updating an account access grant:
+
+```graphql
+mutation {
+  authorizationManagementUpdateAccess(
+    updateAccessOptions: {
+      accountAccessGrant: {
+        dataAccessPolicyId: "YOUR_NEW_DATA_ACCESS_POLICY_ID"
+      }
+      ids: "YOUR_ACCESS_GRANT_ID"
+    }
+  ) {
+    grants {
+      id
+    }
+  }
 }
 ```
 
@@ -831,9 +997,13 @@ mutation {
 }
 ```
 
-## 그룹에서 권한 부여 취소 [#revoke-grants]
+## Revoke grants from group or user [#revoke-grants]
 
-다음은 그룹에서 액세스 권한을 제거하는 예입니다.
+Revoking access grants removes the connection between groups or users and roles, taking away the permissions they had. You can revoke grants at organization, account, entity, or group level. When revoking, specify who is losing access using either `grantee` (for users) or `groupId` (for groups), similar to granting access.
+
+### Account-scoped revoke
+
+Here&apos;s an example of revoking access to an account-scoped role:
 
 ```graphql
 mutation {
@@ -841,18 +1011,112 @@ mutation {
     revokeAccessOptions: {
       accountAccessGrants: {
         accountId: YOUR_ACCOUNT_ID
+        dataAccessPolicyId: "YOUR_DATA_ACCESS_POLICY_ID"
         roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
       }
-      groupId: "YOUR_GROUP_ID"
     }
   ) {
+    accessGrants {
+      id
+    }
     roles {
-      accountId
-      displayName
+      id
     }
   }
 }
 ```
+
+### Organization-scoped revoke
+
+Here&apos;s an example of revoking access to an organization-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      organizationAccessGrants: {
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Entity-scoped revoke
+
+Here&apos;s an example of revoking access to an entity-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      entityAccessGrants: {
+        entity: {
+          id: "YOUR_ENTITY_ID"
+          type: "YOUR_ENTITY_TYPE"
+        }
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Group-scoped revoke
+
+Here&apos;s an example of revoking access to a group-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      groupAccessGrants: {
+        groupId: "YOUR_TARGET_GROUP_ID"
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Response examples
 
 성공에 대한 응답:
 
@@ -860,18 +1124,14 @@ mutation {
 {
   "data": {
     "authorizationManagementRevokeAccess": {
+      "accessGrants": [
+        {
+          "id": "ACCESS_GRANT_ID"
+        }
+      ],
       "roles": [
-         {
-          "displayName": "ROLE_NAME_1",
-          "id": "ROLE_ID_1"
-        },
         {
-          "displayName": "ROLE_NAME_2",
-          "id": "ROLE_ID_2"
-        },
-        {
-          "displayName": "ROLE_NAME_3",
-          "id": "ROLE_ID_3"
+          "id": "ROLE_ID"
         }
       ]
     }

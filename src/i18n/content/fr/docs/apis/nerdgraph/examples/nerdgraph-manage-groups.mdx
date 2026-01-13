@@ -1,9 +1,9 @@
 ---
-title: "Tutoriel NerdGraph\_: Gérer les groupes d'utilisateurs"
+title: 'NerdGraph tutorial: Manage groups and users'
 tags:
   - APIs
   - NerdGraph
-metaDescription: How to use New Relic's NerdGraph API to manage user groups and query information about groups.
+metaDescription: 'How to use New Relic''s NerdGraph API to manage groups and users, and grant access to roles.'
 freshnessValidatedDate: never
 translationType: machine
 ---
@@ -332,7 +332,9 @@ Notez les champs suivants :
 
 ### Créer le rôle personnalisé
 
-Après avoir obtenu l&apos;identifiant unique de chaque autorisation que vous souhaitez attribuer au nouveau rôle, utilisez la mutation suivante pour créer un [rôle](/docs/accounts/accounts-billing/new-relic-one-user-management/user-management-concepts/#roles):
+After you have the unique identifier for each permission you want to assign to the new role, use the following mutation to create a [role](/docs/accounts/accounts-billing/new-relic-one-user-management/user-management-concepts/#roles). You can create roles at three different scopes: account, organization, or entity level. The type of role you create must match the scope of the permissions you&apos;re assigning.
+
+#### Account-scoped role
 
 ```graphql
 mutation {
@@ -341,9 +343,45 @@ mutation {
       id: "YOUR_ORGANIZATION_ID"
       type: "ORGANIZATION"
     }
-    name: "MY CUSTOM ROLE"
+    name: "MY CUSTOM ACCOUNT ROLE"
     permissionIds: [1, 2, 3]
     scope: "account"
+  ) {
+    id
+  }
+}
+```
+
+#### Organization-scoped role
+
+```graphql
+mutation {
+  customRoleCreate(
+    container: {
+      id: "YOUR_ORGANIZATION_ID"
+      type: "ORGANIZATION"
+    }
+    name: "MY CUSTOM ORGANIZATION ROLE"
+    permissionIds: [4, 5, 6]
+    scope: "organization"
+  ) {
+    id
+  }
+}
+```
+
+#### Entity-scoped role
+
+```graphql
+mutation {
+  customRoleCreate(
+    container: {
+      id: "YOUR_ORGANIZATION_ID"
+      type: "ORGANIZATION"
+    }
+    name: "MY CUSTOM ENTITY ROLE"
+    permissionIds: [7, 8, 9]
+    scope: "entity"
   ) {
     id
   }
@@ -356,11 +394,16 @@ mutation {
 
   * `id`: (Chaîne) L&apos;identifiant unique de votre organisation. Remplacez `YOUR_ORGANIZATION_ID` par votre ID d’organisation réel.
   * `type`: (Chaîne) Le type de conteneur. Actuellement, le seul type pris en charge est `"ORGANIZATION"`.
-  * `name`: (Chaîne) Le nom attribué au rôle personnalisé. Exemple : `"MY CUSTOM ROLE"`.
+
+* `name`: (String) The name assigned to the custom role.
 
 * `permissionIds`: (Tableau) Une liste d&apos;ID d&apos;autorisation représentant les capacités attribuées au rôle personnalisé. Utilisez les ID récupérés à partir de la requête d&apos;autorisations ci-dessus.
 
-* `scope`: (Chaîne) Le niveau auquel les autorisations du rôle s&apos;appliquent. Dans ce instance, la portée est `"ACCOUNT"`.
+* `scope`: (String) The level at which the role&apos;s permissions apply. Supported values:
+
+  * `"account"`: Role permissions apply at the account level
+  * `"organization"`: Role permissions apply at the organization level
+  * `"entity"`: Role permissions apply at the entity level
 
 ### Réponse
 
@@ -368,7 +411,8 @@ mutation {
 
   <Callout variant="important">
     * Remplacez `YOUR_ORGANIZATION_ID` par votre ID d’organisation spécifique avant d’exécuter la mutation.
-    * Remplacez l&apos;exemple `permissionIds: [1, 2, 3]` par les ID d&apos;autorisation réels que vous avez récupérés à partir de la requête d&apos;autorisations.
+    * Remplacez l&apos;exemple `permissionIds` par les ID d&apos;autorisation réels que vous avez récupérés à partir de la requête d&apos;autorisations.
+    * Ensure that the permission IDs you use match the scope you&apos;re creating. Use organization-scoped permissions for organization roles and account-scoped permissions for account roles.
   </Callout>
 
 ## Mettre à jour le rôle [#update-role]
@@ -699,28 +743,131 @@ Réponse en cas d&apos;échec :
 }
 ```
 
-## Accorder l&apos;accès à un groupe [#grant-access]
+## Grant access to a group or user [#grant-access]
 
-Voici un exemple d&apos;octroi à un groupe d&apos;un accès à un rôle et à un compte :
+Access grants connect groups or users to roles and define what they can access. When you create an access grant, you&apos;re giving users or groups the permissions defined in a role, applied to a specific target (organization, accounts, entities, or other groups).
+
+To specify who receives the access grant:
+
+* **For users**: Use the `grantee` parameter with `id` and `type: USER`
+* **For groups**: Replace `grantee` with `groupId: "YOUR_GROUP_ID"`
+
+### Account-scoped grant
+
+Here&apos;s an example of granting access to an account-scoped role:
 
 ```graphql
 mutation {
   authorizationManagementGrantAccess(
     grantAccessOptions: {
-      groupId: "YOUR_GROUP_ID"
       accountAccessGrants: {
         accountId: YOUR_ACCOUNT_ID
+        dataAccessPolicyId: "YOUR_DATA_ACCESS_POLICY_ID"
         roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
       }
     }
   ) {
+    accessGrants {
+      id
+    }
     roles {
-      displayName
-      accountId
+      name
     }
   }
 }
 ```
+
+### Organization-scoped grant
+
+Here&apos;s an example of granting access to an organization-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      organizationAccessGrants: {
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Entity-scoped grant
+
+Here&apos;s an example of granting access to an entity-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      entityAccessGrants: {
+        entity: {
+          id: "YOUR_ENTITY_ID"
+          type: "YOUR_ENTITY_TYPE"
+        }
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Group-scoped grant
+
+Here&apos;s an example of granting access to a group-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementGrantAccess(
+    grantAccessOptions: {
+      groupAccessGrants: {
+        groupId: "YOUR_TARGET_GROUP_ID"
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      name
+    }
+  }
+}
+```
+
+### Response examples
 
 Réponse en cas de succès :
 
@@ -728,22 +875,14 @@ Réponse en cas de succès :
 {
   "data": {
     "authorizationManagementGrantAccess": {
+      "accessGrants": [
+        {
+          "id": "ACCESS_GRANT_ID"
+        }
+      ],
       "roles": [
         {
-          "displayName": "ROLE_NAME_1",
-          "id": "ROLE_ID_1"
-        },
-        {
-          "displayName": "ROLE_NAME_2",
-          "id": "ROLE_ID_2"
-        },
-        {
-          "displayName": "ROLE_NAME_3",
-          "id": "ROLE_ID_3"
-        },
-        {
-          "displayName": "ROLE_NAME_4",
-          "id": "ROLE_ID_4"
+          "name": "ROLE_NAME"
         }
       ]
     }
@@ -775,6 +914,33 @@ Réponse en cas d&apos;échec :
       ]
     }
   ]
+}
+```
+
+## Update access grants [#update-grants]
+
+You can update existing account access grants to change the data access policy. Use the `authorizationManagementUpdateAccess` mutation with the grant IDs you want to update.
+
+<Callout variant="important">
+  Updating access grants is currently only available for account-scoped grants.
+</Callout>
+
+Here&apos;s an example of updating an account access grant:
+
+```graphql
+mutation {
+  authorizationManagementUpdateAccess(
+    updateAccessOptions: {
+      accountAccessGrant: {
+        dataAccessPolicyId: "YOUR_NEW_DATA_ACCESS_POLICY_ID"
+      }
+      ids: "YOUR_ACCESS_GRANT_ID"
+    }
+  ) {
+    grants {
+      id
+    }
+  }
 }
 ```
 
@@ -831,9 +997,13 @@ Voici une requête pour trouver l&apos;ID d&apos;un rôle personnalisé :
 }
 ```
 
-## Révoquer les subventions du groupe [#revoke-grants]
+## Revoke grants from group or user [#revoke-grants]
 
-Voici un exemple de suppression de l’accès à un groupe :
+Revoking access grants removes the connection between groups or users and roles, taking away the permissions they had. You can revoke grants at organization, account, entity, or group level. When revoking, specify who is losing access using either `grantee` (for users) or `groupId` (for groups), similar to granting access.
+
+### Account-scoped revoke
+
+Here&apos;s an example of revoking access to an account-scoped role:
 
 ```graphql
 mutation {
@@ -841,18 +1011,112 @@ mutation {
     revokeAccessOptions: {
       accountAccessGrants: {
         accountId: YOUR_ACCOUNT_ID
+        dataAccessPolicyId: "YOUR_DATA_ACCESS_POLICY_ID"
         roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
       }
-      groupId: "YOUR_GROUP_ID"
     }
   ) {
+    accessGrants {
+      id
+    }
     roles {
-      accountId
-      displayName
+      id
     }
   }
 }
 ```
+
+### Organization-scoped revoke
+
+Here&apos;s an example of revoking access to an organization-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      organizationAccessGrants: {
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Entity-scoped revoke
+
+Here&apos;s an example of revoking access to an entity-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      entityAccessGrants: {
+        entity: {
+          id: "YOUR_ENTITY_ID"
+          type: "YOUR_ENTITY_TYPE"
+        }
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Group-scoped revoke
+
+Here&apos;s an example of revoking access to a group-scoped role:
+
+```graphql
+mutation {
+  authorizationManagementRevokeAccess(
+    revokeAccessOptions: {
+      groupAccessGrants: {
+        groupId: "YOUR_TARGET_GROUP_ID"
+        roleId: "YOUR_ROLE_ID"
+        grantee: {
+          id: "YOUR_USER_ID"
+          type: USER
+        }
+      }
+    }
+  ) {
+    accessGrants {
+      id
+    }
+    roles {
+      id
+    }
+  }
+}
+```
+
+### Response examples
 
 Réponse en cas de succès :
 
@@ -860,18 +1124,14 @@ Réponse en cas de succès :
 {
   "data": {
     "authorizationManagementRevokeAccess": {
+      "accessGrants": [
+        {
+          "id": "ACCESS_GRANT_ID"
+        }
+      ],
       "roles": [
-         {
-          "displayName": "ROLE_NAME_1",
-          "id": "ROLE_ID_1"
-        },
         {
-          "displayName": "ROLE_NAME_2",
-          "id": "ROLE_ID_2"
-        },
-        {
-          "displayName": "ROLE_NAME_3",
-          "id": "ROLE_ID_3"
+          "id": "ROLE_ID"
         }
       ]
     }
